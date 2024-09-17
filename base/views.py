@@ -3,11 +3,9 @@ from django.http import HttpResponse
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.db.models import Q
-from django.contrib.auth.models import User
 from django.contrib.auth import authenticate, login, logout
-from django.contrib.auth.forms import UserCreationForm
-from .models import Room, Topic, Message
-from .forms import RoomForm, UserForm
+from .models import Room, Topic, Message, User
+from .forms import RoomForm, UserForm, MyUserCreationForm
 
 
 # Create your views here.
@@ -25,22 +23,22 @@ def loginPage(request):
     return redirect('home')
 
   if request.method == 'POST':
-    username = request.POST.get('username').lower()
+    email = request.POST.get('email').lower()
     password = request.POST.get('password')
 
     try:
-      user = User.objects.get(username=username)
+      user = User.objects.get(email=email)
     except:
       messages.error(request, 'User does not exist')
 
-    user = authenticate(request, username=username, password=password)
+    user = authenticate(request, email=email, password=password)
 
     if user is not None:
       login(request, user)
       return redirect('home')
     else:
       messages.error(request, 'Username or Password does not exist')
-
+  
   context = {'page' : page}
   return render(request, 'base/login_register.html', context)
 
@@ -51,10 +49,10 @@ def logoutUser(request):
 
 
 def registerPage(request):
-  form = UserCreationForm()
+  form = MyUserCreationForm()
 
   if request.method == 'POST':
-    form = UserCreationForm(request.POST)
+    form = MyUserCreationForm(request.POST)
     if form.is_valid():
       user = form.save(commit=False)
       user.username = user.username.lower()
@@ -90,7 +88,7 @@ def room(request, pk):
   room_messages = room.message_set.all()
   participants = room.participants.all()
 
-  if request.user not in participants:
+  if request.user.is_authenticated and request.user not in participants:
         room.participants.add(request.user)
 
   if request.method == 'POST':
@@ -190,7 +188,7 @@ def deleteMessage(request, pk):
 @login_required(login_url='login')
 def Updateuser(request):
   user=request.user
-  form = UserForm(instance=user)
+  form = UserForm(request.POST, request.FILES, instance=user)
 
   if request.method == 'POST':
     form = UserForm(request.POST, instance=user)
